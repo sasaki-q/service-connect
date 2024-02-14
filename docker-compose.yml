@@ -1,0 +1,30 @@
+version: "3"
+
+services:
+  client_container:
+    container_name: client_container
+    build: 
+      context: app/
+      dockerfile: docker/Dockerfile.dev
+    ports:
+      - 1000:1000
+    expose:
+      - 1000
+    environment:
+      - PORT=1000
+      - CONTAINER_NAME=client
+      - SERVER_CONTAINER_HOST=server_container
+      - SERVER_CONTAINER_PORT=1001
+
+  server_container:
+    container_name: server_container
+    build: 
+      context: app/
+      dockerfile: docker/Dockerfile.dev
+    ports:
+      - 1001:1001
+    expose:
+      - 1001
+    environment:
+      - PORT=1001
+      - CONTAINER_NAME=server

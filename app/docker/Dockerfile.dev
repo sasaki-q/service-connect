@@ -1,0 +1,10 @@
+FROM golang:1.21.0-alpine
+
+WORKDIR /app
+
+COPY . .
+RUN apk update && \
+    go mod tidy && \
+    go build -o main
+
+CMD ["/app/main"]
