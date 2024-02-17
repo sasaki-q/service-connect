@@ -35,7 +35,7 @@ type IResourceService interface {
 	NewEcrRepository(repositoryName string) ecr.Repository
 
 	// kms.go
-	NewKey(name string) kms.Key
+	NewKey(name string, principal string) kms.Key
 	GetKeyFromName(name string) kms.IKey
 
 	//s3.go

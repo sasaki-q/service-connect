@@ -9,6 +9,5 @@ RUN go mod tidy && \
 
 FROM --platform=linux/x86_64 debian:bullseye AS production
 COPY --from=build /app/main /main
-RUN apt-get update
 
 CMD ["/main"]
