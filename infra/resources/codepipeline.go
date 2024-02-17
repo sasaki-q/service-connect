@@ -45,7 +45,7 @@ func (r *ResourceService) NewBuildAction(e NewBuildActionProps) BuildActionRetur
 				"CONTAINER_NAME":     {Value: e.ContainerName},
 			},
 			Source: build.Source_GitHub(&build.GitHubSourceProps{
-				Identifier:  jsii.String(fmt.Sprintf("ID-%s", e.ActionName)),
+				Identifier:  jsii.String(fmt.Sprintf("ID_%s", e.ActionName)),
 				Repo:        jsii.String(e.GithubRepositoryName),
 				Owner:       jsii.String(e.Owner),
 				BranchOrRef: jsii.String(e.Branch),

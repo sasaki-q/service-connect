@@ -5,6 +5,7 @@ import (
 	resource "infra/resources"
 
 	"github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awscodepipeline"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	lb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/constructs-go/constructs/v10"
@@ -78,7 +79,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 
 	// Bucket
 	logBucket := i.NewBucket(LogBucketName)
-	i.NewBucket(PipelineBucket)
+	pipelineBucket := i.NewBucket(PipelineBucket)
 
 	// ECR
 	repository := i.NewEcrRepository(RepositoryName)
@@ -168,39 +169,38 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 	})
 
 	// Code Pipeline
-	i.NewAssumeRole("buildRole", []string{"ecr:*", "ecs:*"}, []string{"*"})
-	/*
-		sourceAction := i.NewSourceAction(resource.NewSourceActionProps{
-			ActionName:    "SourceAction",
-			Repository:    e.GithubRepository,
-			Owner:         e.GithubOwner,
-			Branch:        Branch,
-			ConnectionArn: e.ConnectionArn,
-		})
+	buildRole := i.NewAssumeRole("buildRole", []string{"ecr:*", "ecs:*"}, []string{"*"})
 
-		buildAction := i.NewBuildAction(resource.NewBuildActionProps{
-			ActionName:           "BuildAction",
-			ContainerName:        ClientContainerName,
-			EcrRepositoryName:    RepositoryName,
-			GithubRepositoryName: e.GithubRepository,
-			Owner:                e.GithubOwner,
-			Branch:               Branch,
-			BuildRole:            buildRole,
-			SourceArtifact:       sourceAction.Artifact,
-		})
+	sourceAction := i.NewSourceAction(resource.NewSourceActionProps{
+		ActionName:    "SourceAction",
+		Repository:    e.GithubRepository,
+		Owner:         e.GithubOwner,
+		Branch:        Branch,
+		ConnectionArn: e.ConnectionArn,
+	})
 
-		i.NewCodePipeline(resource.NewCodePipelineProps{
-			Name:   fmt.Sprintf("%sCodePipeline", e.Project),
-			Bucket: pipelineBucket,
-			Stages: []struct {
-				Name   string
-				Action pipeline.IAction
-			}{
-				{Name: "SourceStage", Action: sourceAction.Action},
-				{Name: "BuildStage", Action: buildAction.Action},
-			},
-		})
-	*/
+	buildAction := i.NewBuildAction(resource.NewBuildActionProps{
+		ActionName:           "BuildAction",
+		ContainerName:        ClientContainerName,
+		EcrRepositoryName:    RepositoryName,
+		GithubRepositoryName: e.GithubRepository,
+		Owner:                e.GithubOwner,
+		Branch:               Branch,
+		BuildRole:            buildRole,
+		SourceArtifact:       sourceAction.Artifact,
+	})
+
+	i.NewCodePipeline(resource.NewCodePipelineProps{
+		Name:   fmt.Sprintf("%sCodePipeline", e.Project),
+		Bucket: pipelineBucket,
+		Stages: []struct {
+			Name   string
+			Action awscodepipeline.IAction
+		}{
+			{Name: "SourceStage", Action: sourceAction.Action},
+			{Name: "BuildStage", Action: buildAction.Action},
+		},
+	})
 
 	return stack
 }

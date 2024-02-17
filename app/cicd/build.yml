@@ -9,7 +9,8 @@ phases:
       - $(aws ecr get-login --no-include-email --region ${AWS_DEFAULT_REGION})
       - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
       - REPOSITORY_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${REPOSITORY_NAME}
-      - IMAGE_TAG=$(echo ${CODEBUILD_RESOLVED_SOURCE_VERSION} | head -c 7)
+      - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION}
+      - echo IMAGE_TAG = $IMAGE_TAG
   build:
     commands:
       - echo Build started on `date`
@@ -18,12 +19,12 @@ phases:
       - docker build -f docker/Dockerfile -t ${REPOSITORY_NAME}:${IMAGE_TAG} .
       - docker tag ${REPOSITORY_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:${IMAGE_TAG}
       - docker tag ${REPOSITORY_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:latest
+      - cd ..
   post_build:
     commands:
       - echo Build completed on `date`
       - echo Pushing the Docker image...
       - docker push ${REPOSITORY_URI}:${IMAGE_TAG}
-      - docker push ${REPOSITORY_URI}:latest
       - >-
         printf "[{\"name\":\"${CONTAINER_NAME}\",\"imageUri\":\"%s\"}]"
         ${REPOSITORY_URI}:${IMAGE_TAG}
