@@ -16,8 +16,10 @@ type InfraStackProps struct {
 }
 
 type Props struct {
-	GithubAccessToken string
-	HostedZoneId      string
+	ConnectionArn    string
+	GithubOwner      string
+	GithubRepository string
+	Project          string
 }
 
 const (
@@ -35,6 +37,9 @@ const (
 
 	ALBName         string = "alb"
 	TargetGroupName string = "tg"
+
+	Branch         string = "main"
+	PipelineBucket string = "codepipeline-artifact-bucket-2024-02-17"
 )
 
 const (
@@ -73,6 +78,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 
 	// Bucket
 	logBucket := i.NewBucket(LogBucketName)
+	i.NewBucket(PipelineBucket)
 
 	// ECR
 	repository := i.NewEcrRepository(RepositoryName)
@@ -161,6 +167,41 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		DefaultTargetGroups: &[]lb.IApplicationTargetGroup{tg},
 	})
 
+	// Code Pipeline
+	i.NewAssumeRole("buildRole", []string{"ecr:*", "ecs:*"}, []string{"*"})
+	/*
+		sourceAction := i.NewSourceAction(resource.NewSourceActionProps{
+			ActionName:    "SourceAction",
+			Repository:    e.GithubRepository,
+			Owner:         e.GithubOwner,
+			Branch:        Branch,
+			ConnectionArn: e.ConnectionArn,
+		})
+
+		buildAction := i.NewBuildAction(resource.NewBuildActionProps{
+			ActionName:           "BuildAction",
+			ContainerName:        ClientContainerName,
+			EcrRepositoryName:    RepositoryName,
+			GithubRepositoryName: e.GithubRepository,
+			Owner:                e.GithubOwner,
+			Branch:               Branch,
+			BuildRole:            buildRole,
+			SourceArtifact:       sourceAction.Artifact,
+		})
+
+		i.NewCodePipeline(resource.NewCodePipelineProps{
+			Name:   fmt.Sprintf("%sCodePipeline", e.Project),
+			Bucket: pipelineBucket,
+			Stages: []struct {
+				Name   string
+				Action pipeline.IAction
+			}{
+				{Name: "SourceStage", Action: sourceAction.Action},
+				{Name: "BuildStage", Action: buildAction.Action},
+			},
+		})
+	*/
+
 	return stack
 }
 
@@ -206,7 +247,12 @@ func main() {
 				),
 			},
 		},
-		Props{},
+		Props{
+			ConnectionArn:    fmt.Sprintf("%s", carn),
+			GithubOwner:      fmt.Sprintf("%s", gho),
+			GithubRepository: fmt.Sprintf("%s", ghr),
+			Project:          fmt.Sprintf("%s", project),
+		},
 	)
 
 	app.Synth(nil)

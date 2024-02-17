@@ -2,10 +2,13 @@ package resource
 
 import (
 	cdk "github.com/aws/aws-cdk-go/awscdk/v2"
+	pipeline "github.com/aws/aws-cdk-go/awscdk/v2/awscodepipeline"
+	actions "github.com/aws/aws-cdk-go/awscdk/v2/awscodepipelineactions"
 	ec2 "github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	ecr "github.com/aws/aws-cdk-go/awscdk/v2/awsecr"
 	ecs "github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	lb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
+	iam "github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	kms "github.com/aws/aws-cdk-go/awscdk/v2/awskms"
 	logs "github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	s3 "github.com/aws/aws-cdk-go/awscdk/v2/awss3"
@@ -24,6 +27,11 @@ type IResourceService interface {
 	NewLogGroup(name string, key kms.IKey) logs.LogGroup
 	GetLogGroupFromName(name string) logs.ILogGroup
 
+	// codepipeline.go
+	NewSourceAction(e NewSourceActionProps) SourceActionReturnValue
+	NewBuildAction(e NewBuildActionProps) BuildActionReturnValue
+	NewCodePipeline(e NewCodePipelineProps) pipeline.Pipeline
+
 	// container.go
 	NewCluster(e NewClusterProps) ecs.Cluster
 	NewTaskDefinition(taskName string) ecs.FargateTaskDefinition
@@ -33,6 +41,9 @@ type IResourceService interface {
 
 	// ecr.go
 	NewEcrRepository(repositoryName string) ecr.Repository
+
+	// iam.go
+	NewAssumeRole(name string, actions []string, resources []string) iam.Role
 
 	// kms.go
 	NewKey(name string, principal string) kms.Key
@@ -87,4 +98,43 @@ type NewTargetGroupProps struct {
 	Port    float64
 	Service ecs.FargateService
 	Vpc     ec2.Vpc
+}
+
+type NewSourceActionProps struct {
+	ActionName    string
+	Repository    string
+	Owner         string
+	Branch        string
+	ConnectionArn string
+}
+
+type SourceActionReturnValue struct {
+	Action   actions.CodeStarConnectionsSourceAction
+	Artifact pipeline.Artifact
+}
+
+type NewBuildActionProps struct {
+	ActionName           string
+	EcrRepositoryName    string
+	ContainerName        string
+	GithubRepositoryName string
+	Owner                string
+	Branch               string
+
+	BuildRole      iam.IRole
+	SourceArtifact pipeline.Artifact
+}
+
+type BuildActionReturnValue struct {
+	Action   actions.CodeBuildAction
+	Artifact pipeline.Artifact
+}
+
+type NewCodePipelineProps struct {
+	Name   string
+	Bucket s3.IBucket
+	Stages []struct {
+		Name   string
+		Action pipeline.IAction
+	}
 }
