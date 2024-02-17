@@ -1,33 +1,49 @@
 package resource
 
 import (
-	"github.com/aws/aws-cdk-go/awscdk/v2"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
+	cdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	ec2 "github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	ecr "github.com/aws/aws-cdk-go/awscdk/v2/awsecr"
 	ecs "github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	lb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
+	kms "github.com/aws/aws-cdk-go/awscdk/v2/awskms"
 	logs "github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	s3 "github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 )
 
 type ResourceService struct {
-	S awscdk.Stack
+	S cdk.Stack
 }
 
 type IResourceService interface {
-	NewVpc(vpcName string, cidr string) ec2.Vpc
+	// alb.go
+	NewAlb(name string, vpc ec2.Vpc) lb.ApplicationLoadBalancer
+	NewTargetGroup(e NewTargetGroupProps) lb.ApplicationTargetGroup
 
-	NewEcrRepository(repositoryName string) ecr.Repository
+	// cloudwatch.go
+	NewLogGroup(name string, key kms.IKey) logs.LogGroup
+	GetLogGroupFromName(name string) logs.ILogGroup
 
+	// container.go
 	NewCluster(e NewClusterProps) ecs.Cluster
 	NewTaskDefinition(taskName string) ecs.FargateTaskDefinition
 	AddContainer(e AddContainerProps) ecs.ContainerDefinition
 	NewService(e NewServiceProps) ecs.FargateService
 	NewServiceConnection(e NewServiceConnectionProps)
 
-	NewAlb(name string, vpc ec2.Vpc) lb.ApplicationLoadBalancer
-	NewTargetGroup(e NewTargetGroupProps) lb.ApplicationTargetGroup
+	// ecr.go
+	NewEcrRepository(repositoryName string) ecr.Repository
+
+	// kms.go
+	NewKey(name string) kms.Key
+	GetKeyFromName(name string) kms.IKey
+
+	//s3.go
+	NewBucket(name string) s3.Bucket
+	GetBucketFromName(name string) s3.IBucket
+
+	// vpc.go
+	NewVpc(vpcName string, cidr string) ec2.Vpc
 }
 
 type NewClusterProps struct {
@@ -56,7 +72,7 @@ type NewServiceProps struct {
 
 	Cluster        ecs.ICluster
 	LogGroup       logs.ILogGroup
-	Subnets        []awsec2.ISubnet
+	Subnets        []ec2.ISubnet
 	TaskDefinition ecs.TaskDefinition
 }
 

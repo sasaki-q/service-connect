@@ -35,7 +35,7 @@ func main() {
 			return c.String(http.StatusBadRequest, fmt.Sprintf("ERROR: %s\n", err))
 		}
 		return c.JSON(http.StatusOK, map[string]string{
-			"message": fmt.Sprintf("connected === %s", *res),
+			"message": fmt.Sprintf("FROM: %s container → TO: %s container", os.Getenv("CONTAINER_NAME"), *res),
 		})
 	})
 
@@ -43,7 +43,7 @@ func main() {
 }
 
 func GetMessage() (*string, error) {
-	u, err := url.ParseRequestURI(fmt.Sprintf("http://%s:%s/hc", os.Getenv("SERVER_CONTAINER_HOST"), os.Getenv("SERVER_CONTAINER_PORT")))
+	u, err := url.ParseRequestURI(fmt.Sprintf("http://%s:%s/hc", os.Getenv("CONTAINER_HOST"), os.Getenv("CONTAINER_PORT")))
 	if err != nil {
 		log.Errorf("Error: Parse URI === %s", err)
 		return nil, err

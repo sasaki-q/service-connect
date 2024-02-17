@@ -1,13 +1,12 @@
 package main
 
 import (
+	"fmt"
 	resource "infra/resources"
 
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	lb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
-	logs "github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -17,13 +16,17 @@ type InfraStackProps struct {
 }
 
 type Props struct {
-	lbt *string
-	lg  *string
+	GithubAccessToken string
+	HostedZoneId      string
 }
 
 const (
 	VpcName string = "service-connect"
 	VpcCidr string = "192.168.0.0/16"
+
+	KeyName       string = "key"
+	LogBucketName string = "service-connect-log-bucket"
+	LogGroupName  string = "service-connect-log-group"
 
 	ClusterName string = "cluster"
 	Namespace   string = "local"
@@ -45,19 +48,26 @@ const (
 	ServerServiceName    string  = "server_service"
 )
 
-func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps, arg Props) awscdk.Stack {
+func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps, e Props) awscdk.Stack {
 	var sprops awscdk.StackProps
 	if props != nil {
 		sprops = props.StackProps
 	}
 	stack := awscdk.NewStack(scope, &id, &sprops)
 
-	lbt := awss3.Bucket_FromBucketName(stack, arg.lbt, arg.lbt)
-	lg := logs.LogGroup_FromLogGroupName(stack, arg.lg, arg.lg)
 	var i resource.IResourceService = &resource.ResourceService{S: stack}
 
 	// VPC
 	vpc := i.NewVpc(VpcName, VpcCidr)
+
+	// KMS
+	key := i.NewKey(KeyName)
+
+	// LogGroup
+	logGroup := i.NewLogGroup(LogGroupName, key)
+
+	// Bucket
+	logBucket := i.NewBucket(LogBucketName)
 
 	// ECR
 	clientRepository := i.NewEcrRepository(ClientRepositoryName)
@@ -67,8 +77,8 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 	cluster := i.NewCluster(resource.NewClusterProps{
 		ClusterName: ClusterName,
 		NameSpace:   Namespace,
-		LogBucket:   lbt,
-		LogGroup:    lg,
+		LogBucket:   logBucket,
+		LogGroup:    logGroup,
 		Vpc:         vpc,
 	})
 
@@ -79,17 +89,22 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		ContainerName:   ClientContainerName,
 		Port:            ClientPort,
 		PortMappingName: ClientServiceName,
-		Env:             map[string]*string{},
-		Image:           awsecs.ContainerImage_FromEcrRepository(clientRepository, jsii.String("v0.1")),
-		LogGroup:        lg,
-		Task:            clientTaskDefinitiopn,
+		Env: map[string]*string{
+			"PORT":           jsii.String(fmt.Sprintf("%g", ClientPort)),
+			"CONTAINER_NAME": jsii.String(ClientContainerName),
+			"CONTAINER_HOST": jsii.String(ServerContainerName),
+			"CONTAINER_PORT": jsii.String(fmt.Sprintf("%g", ServerPort)),
+		},
+		Image:    awsecs.ContainerImage_FromEcrRepository(clientRepository, jsii.String("v0.1")),
+		LogGroup: logGroup,
+		Task:     clientTaskDefinitiopn,
 	})
 
 	clientService := i.NewService(resource.NewServiceProps{
 		ServiceName:    ClientServiceName,
 		Port:           ClientPort,
 		Cluster:        cluster,
-		LogGroup:       lg,
+		LogGroup:       logGroup,
 		Subnets:        *vpc.PrivateSubnets(),
 		TaskDefinition: clientTaskDefinitiopn,
 	})
@@ -101,17 +116,22 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		ContainerName:   ServerContainerName,
 		Port:            ServerPort,
 		PortMappingName: ServerServiceName,
-		Env:             map[string]*string{},
-		Image:           awsecs.ContainerImage_FromEcrRepository(serverRepository, jsii.String("v0.1")),
-		LogGroup:        lg,
-		Task:            serverTaskDefinitiopn,
+		Env: map[string]*string{
+			"PORT":           jsii.String(fmt.Sprintf("%g", ServerPort)),
+			"CONTAINER_NAME": jsii.String(ServerContainerName),
+			"CONTAINER_HOST": jsii.String(ClientContainerName),
+			"CONTAINER_PORT": jsii.String(fmt.Sprintf("%g", ClientPort)),
+		},
+		Image:    awsecs.ContainerImage_FromEcrRepository(serverRepository, jsii.String("v0.1")),
+		LogGroup: logGroup,
+		Task:     serverTaskDefinitiopn,
 	})
 
 	serverService := i.NewService(resource.NewServiceProps{
 		ServiceName:    ServerServiceName,
 		Port:           ServerPort,
 		Cluster:        cluster,
-		LogGroup:       lg,
+		LogGroup:       logGroup,
 		Subnets:        *vpc.PrivateSubnets(),
 		TaskDefinition: serverTaskDefinitiopn,
 	})
@@ -140,38 +160,56 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 	return stack
 }
 
+const (
+	BootstrapBucketName string = "BBN"
+	ConnectionArn       string = "CARN"
+	Env                 string = "ENV"
+	GithubAccessToken   string = "GHAT"
+	GithubOwner         string = "GHO"
+	GithubRepository    string = "GHR"
+	HostedZoneId        string = "HGI"
+	Id                  string = "ID"
+	Project             string = "PROJECT"
+)
+
 func main() {
 	defer jsii.Close()
 
 	app := awscdk.NewApp(nil)
-	envs, ok := app.Node().TryGetContext(jsii.String("dev")).(map[string]interface{})
-	if !ok {
-		panic("ERROR")
-	}
-
 	var (
-		bt  = jsii.String(envs["bt"].(string))
-		lbt = jsii.String(envs["lbt"].(string))
-		lg  = jsii.String(envs["lg"].(string))
+		bbn     = app.Node().TryGetContext(jsii.String(BootstrapBucketName))
+		carn    = app.Node().TryGetContext(jsii.String(ConnectionArn))
+		env     = app.Node().TryGetContext(jsii.String(Env))
+		ght     = app.Node().TryGetContext(jsii.String(GithubAccessToken))
+		gho     = app.Node().TryGetContext(jsii.String(GithubOwner))
+		ghr     = app.Node().TryGetContext(jsii.String(GithubRepository))
+		hgi     = app.Node().TryGetContext(jsii.String(HostedZoneId))
+		id      = app.Node().TryGetContext(jsii.String(Id))
+		project = app.Node().TryGetContext(jsii.String(Project))
 	)
-	if bt == nil || lbt == nil || lg == nil {
-		panic("ERROR")
+
+	if bbn == nil || carn == nil || env == nil || ght == nil || gho == nil || ghr == nil || hgi == nil || project == nil || id == nil {
+		panic("please pass context")
 	}
 
-	awscdk.Tags_Of(app).Add(jsii.String("Project"), jsii.String("Service-Connect"), nil)
-	NewInfraStack(app, "InfraStack",
+	awscdk.Tags_Of(app).Add(jsii.String("Project"), iToP(project), nil)
+	NewInfraStack(app, fmt.Sprintf("%sStack", project),
 		&InfraStackProps{
 			awscdk.StackProps{
-				Env: env(),
+				Env: myenv(),
 				Synthesizer: awscdk.NewDefaultStackSynthesizer(
-					&awscdk.DefaultStackSynthesizerProps{FileAssetsBucketName: bt},
+					&awscdk.DefaultStackSynthesizerProps{FileAssetsBucketName: iToP(bbn)},
 				),
 			},
 		},
-		Props{lbt: lbt, lg: lg},
+		Props{},
 	)
 
 	app.Synth(nil)
 }
 
-func env() *awscdk.Environment { return nil }
+func iToP(e interface{}) *string {
+	return jsii.String(fmt.Sprintf("%s", e))
+}
+
+func myenv() *awscdk.Environment { return nil }

@@ -13,8 +13,8 @@ services:
     environment:
       - PORT=1000
       - CONTAINER_NAME=client
-      - SERVER_CONTAINER_HOST=server_container
-      - SERVER_CONTAINER_PORT=1001
+      - CONTAINER_HOST=server_container
+      - CONTAINER_PORT=1001
 
   server_container:
     container_name: server_container
@@ -28,3 +28,5 @@ services:
     environment:
       - PORT=1001
       - CONTAINER_NAME=server
+      - CONTAINER_HOST=client_container
+      - CONTAINER_PORT=1000
