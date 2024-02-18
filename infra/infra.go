@@ -189,7 +189,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 	})
 
 	// Code Pipeline
-	buildRole := i.NewAssumeRole("buildRole", []string{"ecr:*", "ecs:*"}, []string{"*"})
+	buildRole := i.NewAssumeRole("buildRole", "codebuild.amazonaws.com", []string{"ecr:*", "ecs:*"}, []string{"*"})
 
 	sourceAction := i.NewSourceAction(resource.NewSourceActionProps{
 		ActionName:    "SourceAction",

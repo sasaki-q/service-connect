@@ -5,10 +5,10 @@ import (
 	"github.com/aws/jsii-runtime-go"
 )
 
-func (r *ResourceService) NewAssumeRole(name string, actions []string, resources []string) iam.Role {
+func (r *ResourceService) NewAssumeRole(name string, principal string, actions []string, resources []string) iam.Role {
 	role := iam.NewRole(r.S, jsii.String(name),
 		&iam.RoleProps{
-			AssumedBy: iam.NewServicePrincipal(jsii.String("codebuild.amazonaws.com"), nil),
+			AssumedBy: iam.NewServicePrincipal(jsii.String(principal), nil),
 			RoleName:  jsii.String(name),
 		},
 	)

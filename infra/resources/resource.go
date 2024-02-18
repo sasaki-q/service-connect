@@ -45,7 +45,7 @@ type IResourceService interface {
 	NewEcrRepository(repositoryName string) ecr.Repository
 
 	// iam.go
-	NewAssumeRole(name string, actions []string, resources []string) iam.Role
+	NewAssumeRole(name string, principal string, actions []string, resources []string) iam.Role
 
 	// kms.go
 	NewKey(name string, principal string) kms.Key
