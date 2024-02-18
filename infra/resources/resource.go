@@ -22,6 +22,7 @@ type IResourceService interface {
 	// alb.go
 	NewAlb(name string, vpc ec2.Vpc) lb.ApplicationLoadBalancer
 	NewTargetGroup(e NewTargetGroupProps) lb.ApplicationTargetGroup
+	AddListener(e AddListenerProps) lb.ApplicationListener
 
 	// cloudwatch.go
 	NewLogGroup(name string, key kms.IKey) logs.LogGroup
@@ -31,6 +32,7 @@ type IResourceService interface {
 	NewSourceAction(e NewSourceActionProps) SourceActionReturnValue
 	NewBuildAction(e NewBuildActionProps) BuildActionReturnValue
 	NewCodePipeline(e NewCodePipelineProps) pipeline.Pipeline
+	NewDeployAction(e NewDeployActionProps) actions.CodeDeployEcsDeployAction
 
 	// container.go
 	NewCluster(e NewClusterProps) ecs.Cluster
@@ -82,6 +84,7 @@ type NewServiceProps struct {
 	Port        float64
 
 	Cluster        ecs.ICluster
+	DeploymentType ecs.DeploymentControllerType
 	LogGroup       logs.ILogGroup
 	Subnets        []ec2.ISubnet
 	TaskDefinition ecs.TaskDefinition
@@ -100,6 +103,13 @@ type NewTargetGroupProps struct {
 	Vpc     ec2.Vpc
 }
 
+type AddListenerProps struct {
+	Id          string
+	Port        float64
+	ALB         lb.ApplicationLoadBalancer
+	TargetGroup lb.ApplicationTargetGroup
+}
+
 type NewSourceActionProps struct {
 	ActionName    string
 	Repository    string
@@ -115,7 +125,9 @@ type SourceActionReturnValue struct {
 
 type NewBuildActionProps struct {
 	ActionName           string
+	Path                 string
 	EcrRepositoryName    string
+	TaskDefinitionArn    string
 	ContainerName        string
 	GithubRepositoryName string
 	Owner                string
@@ -128,6 +140,19 @@ type NewBuildActionProps struct {
 type BuildActionReturnValue struct {
 	Action   actions.CodeBuildAction
 	Artifact pipeline.Artifact
+}
+
+type NewDeployActionProps struct {
+	ActionName       string
+	Path             string
+	ALB              lb.ApplicationLoadBalancer
+	BlueTargetGroup  lb.ApplicationTargetGroup
+	BlueListener     lb.ApplicationListener
+	GreenTargetGroup lb.ApplicationTargetGroup
+	GreenListener    lb.ApplicationListener
+	Service          ecs.IBaseService
+	SourceArtifact   pipeline.Artifact
+	BuildArtifact    pipeline.Artifact
 }
 
 type NewCodePipelineProps struct {

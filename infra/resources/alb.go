@@ -32,3 +32,11 @@ func (r *ResourceService) NewTargetGroup(e NewTargetGroupProps) lb.ApplicationTa
 		},
 	})
 }
+
+func (r *ResourceService) AddListener(e AddListenerProps) lb.ApplicationListener {
+	return e.ALB.AddListener(jsii.String(e.Id), &lb.BaseApplicationListenerProps{
+		Protocol:            lb.ApplicationProtocol_HTTP,
+		Port:                jsii.Number(e.Port),
+		DefaultTargetGroups: &[]lb.IApplicationTargetGroup{e.TargetGroup},
+	})
+}

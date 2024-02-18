@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscodepipeline"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
-	lb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -36,8 +35,11 @@ const (
 
 	RepositoryName string = "repository"
 
-	ALBName         string = "alb"
-	TargetGroupName string = "tg"
+	ALBName              string = "alb"
+	BlueTargetGroupName  string = "blue-target-group"
+	BlueListener         string = "blue-listener"
+	GreenTargetGroupName string = "green-target-group"
+	GreenListener        string = "green-listener"
 
 	Branch         string = "main"
 	PipelineBucket string = "codepipeline-artifact-bucket-2024-02-17"
@@ -115,6 +117,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		ServiceName:    ClientServiceName,
 		Port:           ClientPort,
 		Cluster:        cluster,
+		DeploymentType: awsecs.DeploymentControllerType_CODE_DEPLOY,
 		LogGroup:       logGroup,
 		Subnets:        *vpc.PrivateSubnets(),
 		TaskDefinition: clientTaskDefinitiopn,
@@ -142,6 +145,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		ServiceName:    ServerServiceName,
 		Port:           ServerPort,
 		Cluster:        cluster,
+		DeploymentType: awsecs.DeploymentControllerType_ECS,
 		LogGroup:       logGroup,
 		Subnets:        *vpc.PrivateSubnets(),
 		TaskDefinition: serverTaskDefinitiopn,
@@ -156,16 +160,32 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 
 	// Load Balancer
 	alb := i.NewAlb(ALBName, vpc)
-	tg := i.NewTargetGroup(resource.NewTargetGroupProps{
-		Name:    TargetGroupName,
+	bluetg := i.NewTargetGroup(resource.NewTargetGroupProps{
+		Name:    BlueTargetGroupName,
 		Port:    ClientPort,
 		Service: clientService,
 		Vpc:     vpc,
 	})
 
-	alb.AddListener(jsii.String("listener"), &lb.BaseApplicationListenerProps{
-		Protocol:            lb.ApplicationProtocol_HTTP,
-		DefaultTargetGroups: &[]lb.IApplicationTargetGroup{tg},
+	blueListener := i.AddListener(resource.AddListenerProps{
+		Id:          BlueListener,
+		Port:        80,
+		ALB:         alb,
+		TargetGroup: bluetg,
+	})
+
+	greentg := i.NewTargetGroup(resource.NewTargetGroupProps{
+		Name:    GreenTargetGroupName,
+		Port:    ClientPort,
+		Service: clientService,
+		Vpc:     vpc,
+	})
+
+	greenListener := i.AddListener(resource.AddListenerProps{
+		Id:          GreenListener,
+		Port:        ClientPort,
+		ALB:         alb,
+		TargetGroup: greentg,
 	})
 
 	// Code Pipeline
@@ -181,13 +201,28 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 
 	buildAction := i.NewBuildAction(resource.NewBuildActionProps{
 		ActionName:           "BuildAction",
+		Path:                 "app/cicd/build.yml",
 		ContainerName:        ClientContainerName,
 		EcrRepositoryName:    RepositoryName,
+		TaskDefinitionArn:    *clientTaskDefinitiopn.TaskDefinitionArn(),
 		GithubRepositoryName: e.GithubRepository,
 		Owner:                e.GithubOwner,
 		Branch:               Branch,
 		BuildRole:            buildRole,
 		SourceArtifact:       sourceAction.Artifact,
+	})
+
+	deployAction := i.NewDeployAction(resource.NewDeployActionProps{
+		ActionName:       "DeployAction",
+		Path:             "app/cicd/deploy.yml",
+		ALB:              alb,
+		BlueTargetGroup:  bluetg,
+		BlueListener:     blueListener,
+		GreenTargetGroup: greentg,
+		GreenListener:    greenListener,
+		Service:          clientService,
+		SourceArtifact:   sourceAction.Artifact,
+		BuildArtifact:    buildAction.Artifact,
 	})
 
 	i.NewCodePipeline(resource.NewCodePipelineProps{
@@ -199,6 +234,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		}{
 			{Name: "SourceStage", Action: sourceAction.Action},
 			{Name: "BuildStage", Action: buildAction.Action},
+			{Name: "DeployStage", Action: deployAction},
 		},
 	})
 

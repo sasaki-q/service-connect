@@ -71,6 +71,7 @@ func (r *ResourceService) NewService(e NewServiceProps) ecs.FargateService {
 		ServiceName:          jsii.String(e.ServiceName),
 		TaskDefinition:       e.TaskDefinition,
 		VpcSubnets:           &awsec2.SubnetSelection{Subnets: &e.Subnets},
+		DeploymentController: &ecs.DeploymentController{Type: e.DeploymentType},
 		ServiceConnectConfiguration: &ecs.ServiceConnectProps{
 			Services: &[]*ecs.ServiceConnectService{
 				{
