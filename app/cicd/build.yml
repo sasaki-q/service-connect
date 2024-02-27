@@ -28,8 +28,8 @@ phases:
       - >-
         printf "[{\"name\":\"${CONTAINER_NAME}\",\"ImageURI\":\"%s\"}]"
         ${REPOSITORY_URI}:${IMAGE_TAG}
-        > imageDetails.json
+        > imagedefinitions.json
 artifacts:
   files: 
-    - imageDetails.json
+    - imagedefinitions.json
     - taskdef.json
