@@ -29,6 +29,10 @@ func main() {
 		return c.JSON(http.StatusOK, map[string]string{"message": containerName})
 	})
 
+	e.GET("/test", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"message": "test"})
+	})
+
 	e.GET("/connect", func(c echo.Context) error {
 		res, err := GetMessage()
 		if err != nil {

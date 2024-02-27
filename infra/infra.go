@@ -230,6 +230,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		SourceArtifact:       sourceAction.Artifact,
 	})
 
+	deployRole := i.NewAssumeRole("deployRole", "codedeploy.amazonaws.com", []string{"ecs:*", "s3:*", "iam:PassRole"}, []string{"*"})
 	deployAction := i.NewRollingDeployAction(resource.NewRollingDeployActionProps{
 		ActionName:    "DeployAction",
 		BuildArtifact: buildAction.Artifact,
@@ -237,7 +238,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 	})
 
 	/*
-		deployAction := i.NewBlueGreenDeployAction(resource.NewDeployActionProps{
+		deployAction := i.NewBlueGreenDeployAction(resource.NewBlueGreenDeployActionProps{
 			ActionName:       "DeployAction",
 			Path:             "app/cicd/deploy.yml",
 			ALB:              alb,
@@ -251,7 +252,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		})
 	*/
 
-	i.NewCodePipeline(resource.NewCodePipelineProps{
+	pipeline := i.NewCodePipeline(resource.NewCodePipelineProps{
 		Name:   fmt.Sprintf("%sCodePipeline", e.Project),
 		Bucket: pipelineBucket,
 		Stages: []struct {
@@ -263,6 +264,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 			{Name: "DeployStage", Action: deployAction},
 		},
 	})
+	deployRole.GrantAssumeRole(pipeline.Role())
 
 	return stack
 }

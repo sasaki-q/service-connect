@@ -21,3 +21,14 @@ func (r *ResourceService) NewAssumeRole(name string, principal string, actions [
 
 	return role
 }
+
+func (r *ResourceService) AttachPolicyToRole(policyName string, actions []string, resources []string, role *iam.IRole) iam.Policy {
+	return iam.NewPolicy(r.S, jsii.String(policyName), &iam.PolicyProps{
+		Roles: &[]iam.IRole{*role},
+		Statements: &[]iam.PolicyStatement{iam.NewPolicyStatement(&iam.PolicyStatementProps{
+			Actions:   vToP(actions),
+			Effect:    iam.Effect_ALLOW,
+			Resources: vToP(resources),
+		})},
+	})
+}

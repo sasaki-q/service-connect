@@ -80,13 +80,14 @@ func (r *ResourceService) NewBuildAction(e NewBuildActionProps) BuildActionRetur
 func (r *ResourceService) NewRollingDeployAction(e NewRollingDeployActionProps) actions.EcsDeployAction {
 	return actions.NewEcsDeployAction(&actions.EcsDeployActionProps{
 		ActionName: jsii.String(e.ActionName),
+		Role:       e.DeployRole,
 		Service:    e.Service,
 		Input:      e.BuildArtifact,
 	})
 }
 
 // https://repost.aws/questions/QUWtGsiusrRPaAhOI4xRRvpw/ecs-fargate-with-ecs-connect-and-code-deploy
-func (r *ResourceService) NewBlueGreenDeployAction(e NewDeployActionProps) actions.CodeDeployEcsDeployAction {
+func (r *ResourceService) NewBlueGreenDeployAction(e NewBlueGreenDeployActionProps) actions.CodeDeployEcsDeployAction {
 	deploymentGroup := deploy.NewEcsDeploymentGroup(r.S, jsii.String(e.ActionName),
 		&deploy.EcsDeploymentGroupProps{
 			BlueGreenDeploymentConfig: &deploy.EcsBlueGreenDeploymentConfig{

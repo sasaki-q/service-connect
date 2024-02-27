@@ -33,7 +33,7 @@ type IResourceService interface {
 	NewBuildAction(e NewBuildActionProps) BuildActionReturnValue
 	NewCodePipeline(e NewCodePipelineProps) pipeline.Pipeline
 	NewRollingDeployAction(e NewRollingDeployActionProps) actions.EcsDeployAction
-	NewBlueGreenDeployAction(e NewDeployActionProps) actions.CodeDeployEcsDeployAction
+	NewBlueGreenDeployAction(e NewBlueGreenDeployActionProps) actions.CodeDeployEcsDeployAction
 
 	// container.go
 	NewCluster(e NewClusterProps) ecs.Cluster
@@ -47,6 +47,7 @@ type IResourceService interface {
 
 	// iam.go
 	NewAssumeRole(name string, principal string, actions []string, resources []string) iam.Role
+	AttachPolicyToRole(policyName string, actions []string, resources []string, role *iam.IRole) iam.Policy
 
 	// kms.go
 	NewKey(name string, principal string) kms.Key
@@ -144,7 +145,7 @@ type BuildActionReturnValue struct {
 	Artifact pipeline.Artifact
 }
 
-type NewDeployActionProps struct {
+type NewBlueGreenDeployActionProps struct {
 	ActionName       string
 	Path             string
 	ALB              lb.ApplicationLoadBalancer
@@ -160,6 +161,7 @@ type NewDeployActionProps struct {
 type NewRollingDeployActionProps struct {
 	ActionName    string
 	BuildArtifact pipeline.Artifact
+	DeployRole    iam.Role
 	Service       ecs.IBaseService
 }
 
