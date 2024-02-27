@@ -32,7 +32,8 @@ type IResourceService interface {
 	NewSourceAction(e NewSourceActionProps) SourceActionReturnValue
 	NewBuildAction(e NewBuildActionProps) BuildActionReturnValue
 	NewCodePipeline(e NewCodePipelineProps) pipeline.Pipeline
-	NewDeployAction(e NewDeployActionProps) actions.CodeDeployEcsDeployAction
+	NewRollingDeployAction(e NewRollingDeployActionProps) actions.EcsDeployAction
+	NewBlueGreenDeployAction(e NewDeployActionProps) actions.CodeDeployEcsDeployAction
 
 	// container.go
 	NewCluster(e NewClusterProps) ecs.Cluster
@@ -80,11 +81,12 @@ type AddContainerProps struct {
 }
 
 type NewServiceProps struct {
-	ServiceName string
-	Port        float64
+	ServiceName  string
+	Port         float64
+	DesiredCount float64
+	MaxCount     *float64
 
 	Cluster        ecs.ICluster
-	DeploymentType ecs.DeploymentControllerType
 	LogGroup       logs.ILogGroup
 	Subnets        []ec2.ISubnet
 	TaskDefinition ecs.TaskDefinition
@@ -153,6 +155,12 @@ type NewDeployActionProps struct {
 	Service          ecs.IBaseService
 	SourceArtifact   pipeline.Artifact
 	BuildArtifact    pipeline.Artifact
+}
+
+type NewRollingDeployActionProps struct {
+	ActionName    string
+	BuildArtifact pipeline.Artifact
+	Service       ecs.IBaseService
 }
 
 type NewCodePipelineProps struct {

@@ -1,0 +1,16 @@
+ARG BuildImage
+ARG ProductionImage
+
+FROM $BuildImage AS build
+
+WORKDIR /app
+
+COPY . .
+
+RUN go mod tidy && \
+    go build -o main
+
+FROM $ProductionImage AS production
+COPY --from=build /app/main /main
+
+CMD ["/main"]

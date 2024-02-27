@@ -3,6 +3,7 @@ package resource
 import (
 	"fmt"
 
+	as "github.com/aws/aws-cdk-go/awscdk/v2/awsapplicationautoscaling"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	ecs "github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	"github.com/aws/jsii-runtime-go"
@@ -64,14 +65,20 @@ func (r *ResourceService) AddContainer(e AddContainerProps) ecs.ContainerDefinit
 }
 
 func (r *ResourceService) NewService(e NewServiceProps) ecs.FargateService {
-	return ecs.NewFargateService(r.S, jsii.String(e.ServiceName), &ecs.FargateServiceProps{
+	service := ecs.NewFargateService(r.S, jsii.String(e.ServiceName), &ecs.FargateServiceProps{
 		Cluster:              e.Cluster,
-		DesiredCount:         jsii.Number(1),
+		CircuitBreaker:       &ecs.DeploymentCircuitBreaker{Rollback: jsii.Bool(true)},
+		DesiredCount:         jsii.Number(e.DesiredCount),
 		EnableExecuteCommand: jsii.Bool(true),
 		ServiceName:          jsii.String(e.ServiceName),
 		TaskDefinition:       e.TaskDefinition,
 		VpcSubnets:           &awsec2.SubnetSelection{Subnets: &e.Subnets},
-		DeploymentController: &ecs.DeploymentController{Type: e.DeploymentType},
+		/*
+			https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html
+			ecs.DeploymentControllerType_ECS → rolling update
+			ecs.DeploymentControllerType_CODE_DEPLOY → blue/green with CodeDeploy
+		*/
+		DeploymentController: &ecs.DeploymentController{Type: ecs.DeploymentControllerType_ECS},
 		ServiceConnectConfiguration: &ecs.ServiceConnectProps{
 			Services: &[]*ecs.ServiceConnectService{
 				{
@@ -86,6 +93,18 @@ func (r *ResourceService) NewService(e NewServiceProps) ecs.FargateService {
 			}),
 		},
 	})
+
+	if e.MaxCount != nil {
+		taskCount := service.AutoScaleTaskCount(&as.EnableScalingProps{
+			MaxCapacity: e.MaxCount,
+			MinCapacity: jsii.Number(e.DesiredCount),
+		})
+		taskCount.ScaleOnMemoryUtilization(jsii.String(fmt.Sprintf("%sScaling", e.ServiceName)), &ecs.MemoryUtilizationScalingProps{
+			TargetUtilizationPercent: jsii.Number(75),
+		})
+	}
+
+	return service
 }
 
 func (r *ResourceService) NewServiceConnection(e NewServiceConnectionProps) {

@@ -42,10 +42,12 @@ func (r *ResourceService) NewBuildAction(e NewBuildActionProps) BuildActionRetur
 				Privileged: jsii.Bool(true),
 			},
 			EnvironmentVariables: &map[string]*build.BuildEnvironmentVariable{
-				"AWS_DEFAULT_REGION":  {Value: r.S.Region()},
-				"REPOSITORY_NAME":     {Value: e.EcrRepositoryName},
-				"CONTAINER_NAME":      {Value: e.ContainerName},
-				"TASK_DEFINITION_ARN": {Value: e.TaskDefinitionArn},
+				"AWS_DEFAULT_REGION":   {Value: r.S.Region()},
+				"REPOSITORY_NAME":      {Value: e.EcrRepositoryName},
+				"CONTAINER_NAME":       {Value: e.ContainerName},
+				"TASK_DEFINITION_ARN":  {Value: e.TaskDefinitionArn},
+				"BUILD_IMAGE_ARN":      {Value: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/go:1.21.0-bullseye", *r.S.Account(), *r.S.Region())},
+				"PRODUCTION_IMAGE_ARN": {Value: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/debian:bullseye", *r.S.Account(), *r.S.Region())},
 			},
 			ProjectName: jsii.String(fmt.Sprintf("%sProject", e.ActionName)),
 			Source: build.Source_GitHub(&build.GitHubSourceProps{
@@ -75,7 +77,16 @@ func (r *ResourceService) NewBuildAction(e NewBuildActionProps) BuildActionRetur
 	}
 }
 
-func (r *ResourceService) NewDeployAction(e NewDeployActionProps) actions.CodeDeployEcsDeployAction {
+func (r *ResourceService) NewRollingDeployAction(e NewRollingDeployActionProps) actions.EcsDeployAction {
+	return actions.NewEcsDeployAction(&actions.EcsDeployActionProps{
+		ActionName: jsii.String(e.ActionName),
+		Service:    e.Service,
+		Input:      e.BuildArtifact,
+	})
+}
+
+// https://repost.aws/questions/QUWtGsiusrRPaAhOI4xRRvpw/ecs-fargate-with-ecs-connect-and-code-deploy
+func (r *ResourceService) NewBlueGreenDeployAction(e NewDeployActionProps) actions.CodeDeployEcsDeployAction {
 	deploymentGroup := deploy.NewEcsDeploymentGroup(r.S, jsii.String(e.ActionName),
 		&deploy.EcsDeploymentGroupProps{
 			BlueGreenDeploymentConfig: &deploy.EcsBlueGreenDeploymentConfig{

@@ -35,7 +35,10 @@ const (
 
 	RepositoryName string = "repository"
 
-	ALBName              string = "alb"
+	ALBName         string = "alb"
+	TargetGroupName string = "target-group"
+	ListenerName    string = "listener"
+
 	BlueTargetGroupName  string = "blue-target-group"
 	BlueListener         string = "blue-listener"
 	GreenTargetGroupName string = "green-target-group"
@@ -108,7 +111,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 			"CONTAINER_HOST": jsii.String(fmt.Sprintf("%s.%s", ServerServiceName, Namespace)),
 			"CONTAINER_PORT": jsii.String(fmt.Sprintf("%g", ServerPort)),
 		},
-		Image:    awsecs.ContainerImage_FromEcrRepository(repository, jsii.String("v0.1")),
+		Image:    awsecs.ContainerImage_FromEcrRepository(repository, jsii.String("882367fb2ca2760abc041a3d58d9d60dc45818db")),
 		LogGroup: logGroup,
 		Task:     clientTaskDefinitiopn,
 	})
@@ -116,8 +119,9 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 	clientService := i.NewService(resource.NewServiceProps{
 		ServiceName:    ClientServiceName,
 		Port:           ClientPort,
+		DesiredCount:   1,
+		MaxCount:       jsii.Number(5),
 		Cluster:        cluster,
-		DeploymentType: awsecs.DeploymentControllerType_CODE_DEPLOY,
 		LogGroup:       logGroup,
 		Subnets:        *vpc.PrivateSubnets(),
 		TaskDefinition: clientTaskDefinitiopn,
@@ -136,7 +140,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 			"CONTAINER_HOST": jsii.String(fmt.Sprintf("%s.%s", ClientServiceName, Namespace)),
 			"CONTAINER_PORT": jsii.String(fmt.Sprintf("%g", ClientPort)),
 		},
-		Image:    awsecs.ContainerImage_FromEcrRepository(repository, jsii.String("v0.1")),
+		Image:    awsecs.ContainerImage_FromEcrRepository(repository, jsii.String("882367fb2ca2760abc041a3d58d9d60dc45818db")),
 		LogGroup: logGroup,
 		Task:     serverTaskDefinitiopn,
 	})
@@ -145,7 +149,6 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		ServiceName:    ServerServiceName,
 		Port:           ServerPort,
 		Cluster:        cluster,
-		DeploymentType: awsecs.DeploymentControllerType_ECS,
 		LogGroup:       logGroup,
 		Subnets:        *vpc.PrivateSubnets(),
 		TaskDefinition: serverTaskDefinitiopn,
@@ -160,33 +163,48 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 
 	// Load Balancer
 	alb := i.NewAlb(ALBName, vpc)
-	bluetg := i.NewTargetGroup(resource.NewTargetGroupProps{
-		Name:    BlueTargetGroupName,
+	targetGroup := i.NewTargetGroup(resource.NewTargetGroupProps{
+		Name:    TargetGroupName,
 		Port:    ClientPort,
 		Service: clientService,
 		Vpc:     vpc,
 	})
-
-	blueListener := i.AddListener(resource.AddListenerProps{
-		Id:          BlueListener,
+	i.AddListener(resource.AddListenerProps{
+		Id:          ListenerName,
 		Port:        80,
 		ALB:         alb,
-		TargetGroup: bluetg,
+		TargetGroup: targetGroup,
 	})
 
-	greentg := i.NewTargetGroup(resource.NewTargetGroupProps{
-		Name:    GreenTargetGroupName,
-		Port:    ClientPort,
-		Service: clientService,
-		Vpc:     vpc,
-	})
+	/*
+		bluetg := i.NewTargetGroup(resource.NewTargetGroupProps{
+			Name:    BlueTargetGroupName,
+			Port:    ClientPort,
+			Service: clientService,
+			Vpc:     vpc,
+		})
 
-	greenListener := i.AddListener(resource.AddListenerProps{
-		Id:          GreenListener,
-		Port:        ClientPort,
-		ALB:         alb,
-		TargetGroup: greentg,
-	})
+		blueListener := i.AddListener(resource.AddListenerProps{
+			Id:          BlueListener,
+			Port:        80,
+			ALB:         alb,
+			TargetGroup: bluetg,
+		})
+
+		greentg := i.NewTargetGroup(resource.NewTargetGroupProps{
+			Name:    GreenTargetGroupName,
+			Port:    ClientPort,
+			Service: clientService,
+			Vpc:     vpc,
+		})
+
+		greenListener := i.AddListener(resource.AddListenerProps{
+			Id:          GreenListener,
+			Port:        ClientPort,
+			ALB:         alb,
+			TargetGroup: greentg,
+		})
+	*/
 
 	// Code Pipeline
 	buildRole := i.NewAssumeRole("buildRole", "codebuild.amazonaws.com", []string{"ecr:*", "ecs:*"}, []string{"*"})
@@ -212,18 +230,26 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		SourceArtifact:       sourceAction.Artifact,
 	})
 
-	deployAction := i.NewDeployAction(resource.NewDeployActionProps{
-		ActionName:       "DeployAction",
-		Path:             "app/cicd/deploy.yml",
-		ALB:              alb,
-		BlueTargetGroup:  bluetg,
-		BlueListener:     blueListener,
-		GreenTargetGroup: greentg,
-		GreenListener:    greenListener,
-		Service:          clientService,
-		SourceArtifact:   sourceAction.Artifact,
-		BuildArtifact:    buildAction.Artifact,
+	deployAction := i.NewRollingDeployAction(resource.NewRollingDeployActionProps{
+		ActionName:    "DeployAction",
+		BuildArtifact: buildAction.Artifact,
+		Service:       clientService,
 	})
+
+	/*
+		deployAction := i.NewBlueGreenDeployAction(resource.NewDeployActionProps{
+			ActionName:       "DeployAction",
+			Path:             "app/cicd/deploy.yml",
+			ALB:              alb,
+			BlueTargetGroup:  bluetg,
+			BlueListener:     blueListener,
+			GreenTargetGroup: greentg,
+			GreenListener:    greenListener,
+			Service:          clientService,
+			SourceArtifact:   sourceAction.Artifact,
+			BuildArtifact:    buildAction.Artifact,
+		})
+	*/
 
 	i.NewCodePipeline(resource.NewCodePipelineProps{
 		Name:   fmt.Sprintf("%sCodePipeline", e.Project),

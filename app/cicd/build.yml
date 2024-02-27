@@ -16,9 +16,8 @@ phases:
       - echo Build started on `date`
       - echo Building the Docker image...
       - cd app
-      - docker build -f docker/Dockerfile -t ${REPOSITORY_NAME}:${IMAGE_TAG} .
+      - docker build -f docker/Dockerfile.build -t ${REPOSITORY_NAME}:${IMAGE_TAG} --build-arg BuildImage=${BUILD_IMAGE_ARN} --build-arg ProductionImage=${PRODUCTION_IMAGE_ARN} .
       - docker tag ${REPOSITORY_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:${IMAGE_TAG}
-      - docker tag ${REPOSITORY_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:latest
       - cd ..
   post_build:
     commands:
